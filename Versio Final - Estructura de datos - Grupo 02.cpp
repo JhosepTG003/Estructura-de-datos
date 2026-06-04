@@ -1,5 +1,8 @@
 #include <iostream>
 #include <string>
+#include <fstream>   // LibrerÃ­a para la persistencia de archivos (lectura/escritura)
+#include <ctime>     // LibrerÃ­a para CTIMER y medir el ciclo de vida del proceso
+#include <windows.h> // LibrerÃ­a para simular el consumo de tiempo con Sleep()
 
 using namespace std;
 
@@ -7,35 +10,35 @@ using namespace std;
 // 1. ESTRUCTURAS DE DATOS BASE
 // ==========================================
 
-// Estructura fundamental que simula un PCB (Process Control Block) básico.
+// Estructura fundamental que simula un PCB (Process Control Block) bÃ¡sico.
 // Contiene los datos puros y duros de lo que es un proceso en el sistema operativo.
 struct Proceso {
-    int id;            // Identificador único del proceso (Ej: 101, 102). No puede repetirse ni ser negativo.
+    int id;            // Identificador Ãºnico del proceso (Ej: 101, 102). No puede repetirse ni ser negativo.
     string nombre;     // Nombre descriptivo del programa (Ej: "Navegador", "Antivirus").
     int prioridad;     // Nivel de urgencia: 1 = Alta, 2 = Media, 3 = Baja.
-    int rafaga;        // Tiempo simulado en milisegundos que el proceso ocupará el procesador (Ej: 500ms).
+    int rafaga;        // Tiempo simulado en milisegundos que el proceso ocuparÃ¡ el procesador (Ej: 500ms).
 };
 
-// --- Definición de los Nodos para las Estructuras Dinámicas ---
-// Recuerda: Un nodo es una "caja" que envuelve los datos y le añade un "gancho" (puntero) para conectarse con otros.
+// --- DefiniciÃ³n de los Nodos para las Estructuras DinÃ¡micas ---
+// Recuerda: Un nodo es una "caja" que envuelve los datos y le aÃ±ade un "gancho" (puntero) para conectarse con otros.
 
-// Nodo diseñado para la Lista Enlazada Simple (Funciona como el Gestor General de Procesos)
+// Nodo diseÃ±ado para la Lista Enlazada Simple (Funciona como el Gestor General de Procesos)
 struct NodoLista {
-    Proceso p;         // La información del proceso que se va a guardar.
-    NodoLista* sig;    // Puntero de tipo NodoLista que almacena la dirección de memoria del SIGUIENTE nodo.
+    Proceso p;         // La informaciÃ³n del proceso que se va a guardar.
+    NodoLista* sig;    // Puntero de tipo NodoLista que almacena la direcciÃ³n de memoria del SIGUIENTE nodo.
 };
 
-// Nodo diseñado para la Cola de Prioridad (Funciona como el Planificador de la CPU)
+// Nodo diseÃ±ado para la Cola de Prioridad (Funciona como el Planificador de la CPU)
 struct NodoCola {
-    Proceso p;         // El proceso que está en la fila esperando a que la CPU se libere.
+    Proceso p;         // El proceso que estÃ¡ en la fila esperando a que la CPU se libere.
     NodoCola* sig;     // Puntero que enlaza con el siguiente proceso que tiene menor o igual prioridad en la fila.
 };
 
-// Nodo diseñado para la Pila (Funciona como el Gestor de Memoria RAM - LIFO)
+// Nodo diseÃ±ado para la Pila (Funciona como el Gestor de Memoria RAM - LIFO)
 struct NodoPila {
-    int bloqueMemoria; // Dirección de memoria ficticia asignada (Ej: 1000, 1100, 1200).
-    int idProceso;     // El ID del proceso que se está adueñando de este bloque de memoria en particular.
-    NodoPila* sig;     // Puntero que apunta al bloque de memoria que quedó ABAJO en la pila.
+    int bloqueMemoria; // DirecciÃ³n de memoria ficticia asignada (Ej: 1000, 1100, 1200).
+    int idProceso;     // El ID del proceso que se estÃ¡ adueÃ±ando de este bloque de memoria en particular.
+    NodoPila* sig;     // Puntero que apunta al bloque de memoria que quedÃ³ ABAJO en la pila.
 };
 
 // ==========================================
@@ -43,49 +46,49 @@ struct NodoPila {
 // ==========================================
 class GestorProcesos {
 private:
-    NodoLista* cabeza; // Puntero "ancla" que siempre apunta al primer nodo de la lista. Si es NULL, la lista está vacía.
+    NodoLista* cabeza; // Puntero "ancla" que siempre apunta al primer nodo de la lista. Si es NULL, la lista estÃ¡ vacÃ­a.
 public:
-    // Constructor de la clase: Se ejecuta automáticamente al crear el objeto. Inicializa la lista vacía.
+    // Constructor de la clase: Se ejecuta automÃ¡ticamente al crear el objeto. Inicializa la lista vacÃ­a.
     GestorProcesos() { 
         cabeza = NULL; 
     }
 
-    // Método para insertar un proceso siempre al final de la lista (Como una fila normal de inserción)
+    // MÃ©todo para insertar un proceso siempre al final de la lista (Como una fila normal de inserciÃ³n)
     void agregarProceso(Proceso nuevoProceso) {
-        // Paso 1: Crear el nodo de forma dinámica en la memoria usando 'new'
+        // Paso 1: Crear el nodo de forma dinÃ¡mica en la memoria usando 'new'
         NodoLista* nuevo = new NodoLista;
         nuevo->p = nuevoProceso; // Guardamos los datos del proceso dentro del nodo.
-        nuevo->sig = NULL;       // Como va a ser el último nodo, su puntero 'siguiente' debe mirar a la nada (NULL).
+        nuevo->sig = NULL;       // Como va a ser el Ãºltimo nodo, su puntero 'siguiente' debe mirar a la nada (NULL).
 
-        // Paso 2: Si la lista está vacía, este nuevo nodo se convierte automáticamente en el primero (cabeza).
+        // Paso 2: Si la lista estÃ¡ vacÃ­a, este nuevo nodo se convierte automÃ¡ticamente en el primero (cabeza).
         if (!cabeza) {
             cabeza = nuevo; 
         } else {
             // Paso 3: Si ya hay nodos, creamos un puntero auxiliar para recorrer la lista sin perder el inicio (cabeza).
             NodoLista* aux = cabeza;
-            // El ciclo se detiene exactamente cuando 'aux' esté parado en el ÚLTIMO nodo de la lista.
+            // El ciclo se detiene exactamente cuando 'aux' estÃ© parado en el ÃšLTIMO nodo de la lista.
             while (aux->sig != NULL) {
                 aux = aux->sig; // Avanzamos al siguiente nodo de la cadena.
             }
-            // Paso 4: Conectamos el último nodo existente con nuestro nuevo nodo.
+            // Paso 4: Conectamos el Ãºltimo nodo existente con nuestro nuevo nodo.
             aux->sig = nuevo;
         }
         cout << "[+] Proceso " << nuevoProceso.nombre << " registrado en el sistema.\n";
     }
 
-    // Método para recorrer la lista desde el inicio hasta el final e imprimir los datos
+    // MÃ©todo para recorrer la lista desde el inicio hasta el final e imprimir los datos
     void mostrarProcesos() {
         // Si cabeza es NULL, significa que la lista no tiene elementos.
         if (!cabeza) {
             cout << "No hay procesos registrados.\n";
-            return; // Cortamos la ejecución del método aquí mismo.
+            return; // Cortamos la ejecuciÃ³n del mÃ©todo aquÃ­ mismo.
         }
         
         NodoLista* aux = cabeza; // Empezamos a leer desde el primer nodo.
         cout << "\n--- TABLA DE PROCESOS ---\n";
         cout << "ID\tNombre\tPrioridad\tRafaga(ms)\n";
         
-        // El bucle continuará imprimiendo mientras 'aux' apunte a un nodo válido (distinto de NULL).
+        // El bucle continuarÃ¡ imprimiendo mientras 'aux' apunte a un nodo vÃ¡lido (distinto de NULL).
         while (aux != NULL) {
             cout << aux->p.id << "\t" << aux->p.nombre << "\t" << aux->p.prioridad << "\t\t" << aux->p.rafaga << "\n";
             aux = aux->sig; // Saltamos al siguiente nodo.
@@ -93,9 +96,39 @@ public:
         cout << "-------------------------\n";
     }
 
-    // Método de acceso (Getter) para que otras clases o el main puedan ver dónde empieza la lista.
+    // MÃ©todo de acceso (Getter) para que otras clases o el main puedan ver dÃ³nde empieza la lista.
     NodoLista* getCabeza() { 
         return cabeza; 
+    }
+
+    // --- MÃ“DULO DE PERSISTENCIA Y MANEJO DE ARCHIVOS ---
+    
+    // MÃ©todo para guardar el estado actual de la lista en un archivo fÃ­sico (.txt)
+    void guardarEnArchivo() {
+        ofstream archivo("procesos.txt"); // Crea o sobreescribe el archivo fÃ­sico
+        NodoLista* aux = cabeza;
+        while (aux != NULL) {
+            // Escribe los datos separados por espacio en el archivo
+            archivo << aux->p.id << " " << aux->p.nombre << " " << aux->p.prioridad << " " << aux->p.rafaga << "\n";
+            aux = aux->sig;
+        }
+        archivo.close(); // Cierra el archivo liberando recursos del sistema
+        cout << "[Persistencia] Estado guardado correctamente en 'procesos.txt'.\n";
+    }
+
+    // MÃ©todo para cargar procesos desde un archivo fÃ­sico al iniciar el sistema
+    void cargarDeArchivo() {
+        ifstream archivo("procesos.txt"); // Abre el archivo en modo lectura
+        if (!archivo.is_open()) {
+            return; // Si el archivo no existe (ej. primera vez que se abre el programa), no hace nada
+        }
+        Proceso p;
+        // Lee lÃ­nea por lÃ­nea e inserta en la lista enlazada
+        while (archivo >> p.id >> p.nombre >> p.prioridad >> p.rafaga) {
+            agregarProceso(p);
+        }
+        archivo.close();
+        cout << "[Persistencia] Estado de procesos anteriores cargado con Ã©xito.\n";
     }
 };
 
@@ -104,39 +137,39 @@ public:
 // ==========================================
 class GestorMemoria {
 private:
-    NodoPila* cima;        // Puntero que siempre mira al nodo de ARRIBA de la pila (el último en llegar).
-    int contadorBloques;   // Variable numérica para generar direcciones de memoria (1000, 1100, 1200...).
+    NodoPila* cima;        // Puntero que siempre mira al nodo de ARRIBA de la pila (el Ãºltimo en llegar).
+    int contadorBloques;   // Variable numÃ©rica para generar direcciones de memoria (1000, 1100, 1200...).
 public:
-    // Constructor: Inicializa la pila vacía y define que las direcciones de memoria empezarán en la 1000.
+    // Constructor: Inicializa la pila vacÃ­a y define que las direcciones de memoria empezarÃ¡n en la 1000.
     GestorMemoria() { 
         cima = NULL; 
         contadorBloques = 1000; 
     } 
 
-    // Operación PUSH: Apila un bloque de memoria simulando que un proceso está entrando a la RAM.
+    // OperaciÃ³n PUSH: Apila un bloque de memoria simulando que un proceso estÃ¡ entrando a la RAM.
     void pushMemoria(int idProceso) {
         // Reservamos memoria para el bloque simulado en la RAM.
         NodoPila* nuevo = new NodoPila;       
-        nuevo->idProceso = idProceso;         // Guardamos a qué proceso pertenece.
-        nuevo->bloqueMemoria = contadorBloques; // Le asignamos la dirección de memoria actual.
+        nuevo->idProceso = idProceso;         // Guardamos a quÃ© proceso pertenece.
+        nuevo->bloqueMemoria = contadorBloques; // Le asignamos la direcciÃ³n de memoria actual.
         
-        // El nuevo nodo se coloca arriba, por lo que su 'siguiente' es la antigua cima que queda abajo de él.
+        // El nuevo nodo se coloca arriba, por lo que su 'siguiente' es la antigua cima que queda abajo de Ã©l.
         nuevo->sig = cima;
         cima = nuevo; // Ahora la cima del sistema pasa a ser nuestro nuevo nodo.
         
-        contadorBloques += 100; // Incrementamos en 100 para que el siguiente bloque tenga otra dirección (Ej: 1100).
+        contadorBloques += 100; // Incrementamos en 100 para que el siguiente bloque tenga otra direcciÃ³n (Ej: 1100).
         cout << "[Memoria] Bloque " << nuevo->bloqueMemoria << " asignado al Proceso ID: " << idProceso << "\n";
     }
 
-    // Operación POP: Desapila (libera) el bloque que esté en la cima (El último que entró es el primero en salir).
+    // OperaciÃ³n POP: Desapila (libera) el bloque que estÃ© en la cima (El Ãºltimo que entrÃ³ es el primero en salir).
     void popMemoria() {
-        // Verificamos que la pila no esté vacía antes de intentar borrar algo.
+        // Verificamos que la pila no estÃ© vacÃ­a antes de intentar borrar algo.
         if (cima != NULL) { 
-            NodoPila* aux = cima; // Guardamos temporalmente el nodo de la cima para no perder su dirección.
+            NodoPila* aux = cima; // Guardamos temporalmente el nodo de la cima para no perder su direcciÃ³n.
             cima = cima->sig;     // La cima se desplaza hacia el nodo que estaba abajo.
             
             cout << "[Memoria] Bloque " << aux->bloqueMemoria << " liberado (Proceso ID: " << aux->idProceso << ").\n";
-            delete aux; // Destruimos físicamente el nodo liberando la memoria dinámica del sistema.
+            delete aux; // Destruimos fÃ­sicamente el nodo liberando la memoria dinÃ¡mica del sistema.
         }
     }
 };
@@ -146,22 +179,22 @@ public:
 // ==========================================
 class PlanificadorCPU {
 private:
-    NodoCola* frente; // Puntero que apunta al primer proceso de la fila (el que tiene más derecho a usar la CPU).
+    NodoCola* frente; // Puntero que apunta al primer proceso de la fila (el que tiene mÃ¡s derecho a usar la CPU).
 public:
-    // Constructor: Inicializa la fila de espera de la CPU completamente vacía.
+    // Constructor: Inicializa la fila de espera de la CPU completamente vacÃ­a.
     PlanificadorCPU() { 
         frente = NULL; 
     }
 
-    // Método para insertar procesos ordenados automáticamente según su prioridad (1 es más urgente que 3)
+    // MÃ©todo para insertar procesos ordenados automÃ¡ticamente segÃºn su prioridad (1 es mÃ¡s urgente que 3)
     void encolarPorPrioridad(Proceso p) {
-        // Creamos el nodo que contendrá al proceso en la cola de la CPU.
+        // Creamos el nodo que contendrÃ¡ al proceso en la cola de la CPU.
         NodoCola* nuevo = new NodoCola;
         nuevo->p = p;
         nuevo->sig = NULL;
 
-        // CASO 1: Si la cola está vacía, O si el nuevo proceso tiene una prioridad más alta (número menor, ej: 1)
-        // que el que actualmente está al frente de la cola, se inserta directamente en el primer lugar.
+        // CASO 1: Si la cola estÃ¡ vacÃ­a, O si el nuevo proceso tiene una prioridad mÃ¡s alta (nÃºmero menor, ej: 1)
+        // que el que actualmente estÃ¡ al frente de la cola, se inserta directamente en el primer lugar.
         if (!frente || p.prioridad < frente->p.prioridad) {
             nuevo->sig = frente; // El nuevo nodo apunta al que antes era el primero.
             frente = nuevo;      // El frente de la cola ahora es el nuevo proceso.
@@ -169,17 +202,17 @@ public:
         // CASO 2: El proceso debe buscar su lugar correspondiente en medio o al final de la fila.
         else {
             NodoCola* aux = frente;
-            // Avanzamos por la fila mientras el siguiente nodo exista y tenga una prioridad mayor o igual (número menor o igual).
+            // Avanzamos por la fila mientras el siguiente nodo exista y tenga una prioridad mayor o igual (nÃºmero menor o igual).
             while (aux->sig != NULL && aux->sig->p.prioridad <= p.prioridad) {
-                aux = aux->sig; // Nos movemos un lugar hacia atrás en la fila.
+                aux = aux->sig; // Nos movemos un lugar hacia atrÃ¡s en la fila.
             }
-            // Encontrada la posición correcta: insertamos el nuevo nodo entre 'aux' y 'aux->sig'.
+            // Encontrada la posiciÃ³n correcta: insertamos el nuevo nodo entre 'aux' y 'aux->sig'.
             nuevo->sig = aux->sig;
             aux->sig = nuevo;
         }
     }
 
-    // Método que simula el procesamiento secuencial y ordenado de los trabajos.
+    // MÃ©todo que simula el procesamiento secuencial y ordenado de los trabajos.
     void ejecutarProcesos(GestorMemoria& memoria) {
         // Si no hay procesos en el frente de la cola, no hay nada que procesar.
         if (!frente) { 
@@ -187,7 +220,7 @@ public:
             return;
         }
 
-        int relojVirtual = 0; // Contador acumulativo que simula el avance del tiempo en milisegundos.
+        double relojVirtual = 0; // Acumulador de tiempo en base a mediciones reales de CTIMER
         cout << "\n--- INICIANDO EJECUCION DE CPU ---\n";
         
         // El ciclo corre de forma continua hasta vaciar por completo la cola de procesos (frente sea NULL).
@@ -197,21 +230,31 @@ public:
 
             cout << "\n[CPU] Atendiendo Proceso: " << atendido->p.nombre << " (Prioridad " << atendido->p.prioridad << ")\n";
             
-            // Simulación de asignación en RAM: Metemos el ID del proceso a la Pila de memoria.
+            // SimulaciÃ³n de asignaciÃ³n en RAM: Metemos el ID del proceso a la Pila de memoria.
             memoria.pushMemoria(atendido->p.id);
 
-            // Simulación del procesamiento según su ráfaga de tiempo.
-            cout << "      Simulando procesamiento de " << atendido->p.rafaga << "ms...\n";
-            relojVirtual += atendido->p.rafaga; // El reloj avanza sumando los milisegundos consumidos.
-            cout << "      Terminado. Tiempo total de sistema actual: " << relojVirtual << " ms virtuales.\n";
+            // --- USO DE CTIMER PARA GESTIÃ“N DE TIEMPO REAL ---
+            cout << "      Ejecutando rafaga solicitada (" << atendido->p.rafaga << "ms)...\n";
+            clock_t tiempo_inicio = clock(); // Marca de tiempo al iniciar la rÃ¡faga
+            
+            Sleep(atendido->p.rafaga); // Pausa el sistema fÃ­sicamente simulando que el CPU estÃ¡ trabajando
+            
+            clock_t tiempo_fin = clock(); // Marca de tiempo al finalizar la rÃ¡faga
+            
+            // CÃ¡lculo del tiempo real consumido mediante la librerÃ­a CTIMER
+            double tiempo_transcurrido = 1000.0 * (tiempo_fin - tiempo_inicio) / CLOCKS_PER_SEC;
+            relojVirtual += tiempo_transcurrido; // Acumular al reloj global
 
-            // Simulación de liberación de RAM: Sacamos el proceso de la Pila de memoria.
+            cout << "      Ciclo de vida terminado. Tiempo real procesado: " << tiempo_transcurrido << " ms.\n";
+            cout << "      Tiempo de sistema actual: " << relojVirtual << " ms.\n";
+
+            // SimulaciÃ³n de liberaciÃ³n de RAM: Sacamos el proceso de la Pila de memoria.
             memoria.popMemoria();
             
-            delete atendido; // Eliminamos de la memoria dinámica el nodo que ya fue completamente procesado.
+            delete atendido; // Eliminamos de la memoria dinÃ¡mica el nodo que ya fue completamente procesado.
         }
         cout << "\n--- CPU EN ESTADO INACTIVO (IDLE) ---\n";
-        cout << "Tiempo total de ejecucion de todos los procesos: " << relojVirtual << " ms virtuales.\n";
+        cout << "Tiempo total de ejecucion real de todos los procesos: " << relojVirtual << " ms.\n";
     }
 };
 
@@ -219,16 +262,21 @@ public:
 // 5. MAIN 
 // =========
 int main() {
-    // Instanciamos los objetos que controlarán las tres estructuras principales del proyecto.
+    // Instanciamos los objetos que controlarÃ¡n las tres estructuras principales del proyecto.
     GestorProcesos gp; // Lista enlazada.
     GestorMemoria gm;  // Pila.
     PlanificadorCPU cpu; // Cola de prioridad.
     
-    int opcion; // Variable que almacenará numéricamente la selección del menú del usuario.
+    // Al arrancar el sistema, cargamos automÃ¡ticamente la informaciÃ³n guardada en disco
+    cout << "Inicializando sistema...\n";
+    gp.cargarDeArchivo();
+    cout << "-----------------------------------\n";
+    
+    int opcion; // Variable que almacenarÃ¡ numÃ©ricamente la selecciÃ³n del menÃº del usuario.
 
-    // Bucle principal del sistema que se mantendrá vivo hasta que el usuario decida salir (opción 5).
+    // Bucle principal del sistema que se mantendrÃ¡ vivo hasta que el usuario decida salir (opciÃ³n 5).
     do {
-        // Impresión visual de la interfaz del menú de consola.
+        // ImpresiÃ³n visual de la interfaz del menÃº de consola.
         cout << "\n===================================\n";
         cout << " SISTEMA DE GESTION DE PROCESOS \n";
         cout << "===================================\n";
@@ -236,20 +284,20 @@ int main() {
         cout << "2. Ver tabla de procesos activos\n";
         cout << "3. Enviar procesos al Planificador de CPU\n";
         cout << "4. Ejecutar procesos en CPU (Simulacion)\n";
-        cout << "5. Salir\n";
+        cout << "5. Guardar estado y Salir\n";
         
-        // La condición obliga a que 'opcion' esté estrictamente entre 1 y 5.
+        // La condiciÃ³n obliga a que 'opcion' estÃ© estrictamente entre 1 y 5.
         do {
             cout << "Ingrese opcion: ";
-            cin >> opcion; // Captura el número ingresado.
+            cin >> opcion; // Captura el nÃºmero ingresado.
             
-            // Si el número está fuera del rango permitido, avisa del error.
+            // Si el nÃºmero estÃ¡ fuera del rango permitido, avisa del error.
             if (opcion < 1 || opcion > 5) {
                 cout << "[Error] Opcion invalida. Intente con un numero del 1 al 5.\n";
             }
-        } while (opcion < 1 || opcion > 5); // El bucle se repite SIEMPRE que la condición se cumpla (número incorrecto).
+        } while (opcion < 1 || opcion > 5); // El bucle se repite SIEMPRE que la condiciÃ³n se cumpla (nÃºmero incorrecto).
 
-        // Estructura Switch-Case para bifurcar el camino del programa según la opción validada.
+        // Estructura Switch-Case para bifurcar el camino del programa segÃºn la opciÃ³n validada.
         switch (opcion) {
             case 1: {
                 Proceso p; // Creamos una variable temporal de tipo Proceso para llenarla con datos.
@@ -269,7 +317,7 @@ int main() {
                 cin >> p.nombre; 
                 
                 // --- VALIDACION SIMPLE DE LA PRIORIDAD ---
-                // Forzamos al usuario a elegir únicamente las opciones lógicas del sistema operativo (1, 2 o 3).
+                // Forzamos al usuario a elegir Ãºnicamente las opciones lÃ³gicas del sistema operativo (1, 2 o 3).
                 do {
                     cout << "Prioridad (1-Alta, 2-Media, 3-Baja): "; 
                     cin >> p.prioridad;
@@ -279,7 +327,7 @@ int main() {
                 } while (p.prioridad < 1 || p.prioridad > 3); // Si no es 1, 2 ni 3, repite la solicitud.
                 
                 // --- VALIDACION SIMPLE DE LA RAFAGA ---
-                // El tiempo de ejecución en milisegundos obligatoriamente debe ser mayor que cero.
+                // El tiempo de ejecuciÃ³n en milisegundos obligatoriamente debe ser mayor que cero.
                 do {
                     cout << "Rafaga de CPU (en ms, ej. 1500): "; 
                     cin >> p.rafaga;
@@ -300,13 +348,13 @@ int main() {
             case 3: {
                 // Recuperamos el puntero inicial de nuestra lista global de procesos.
                 NodoLista* aux = gp.getCabeza();
-                int cont = 0; // Contador interno para informar cuántos elementos movimos.
+                int cont = 0; // Contador interno para informar cuÃ¡ntos elementos movimos.
                 
                 // Recorremos toda la lista enlazada original elemento por elemento.
                 while(aux != NULL) {
                     // Enviamos una copia de los datos del proceso a la cola ordenada por prioridad del planificador.
                     cpu.encolarPorPrioridad(aux->p);
-                    aux = aux->sig; // Pasamos al siguiente eslabón de la lista.
+                    aux = aux->sig; // Pasamos al siguiente eslabÃ³n de la lista.
                     cont++; // Sumamos uno al contador de procesos transferidos.
                 }
                 cout << "[!] " << cont << " procesos encolados exitosamente por prioridad.\n";
@@ -314,16 +362,16 @@ int main() {
             }
                 
             case 4:
-                cpu.ejecutarProcesos(gm); // Inicia la descarga automática de la cola simulando el trabajo de la CPU.
+                cpu.ejecutarProcesos(gm); // Inicia la descarga automÃ¡tica de la cola simulando el trabajo de la CPU.
                 break;
                 
             case 5:
-                cout << "\nSaliendo del sistema...\n";
+                cout << "\nCerrando el sistema...\n";
+                gp.guardarEnArchivo(); // Antes de salir, activamos la persistencia en disco
                 break;
         }
 
-	
-    } while (opcion != 5); // Rompe el ciclo maestro de la aplicación únicamente si se seleccionó la opción de salida (5).
+    } while (opcion != 5); // Rompe el ciclo maestro de la aplicaciÃ³n Ãºnicamente si se seleccionÃ³ la opciÃ³n de salida (5).
 
-    return 0; // Finaliza la ejecución del método principal devolviendo un estado sin errores al sistema operativo.
+    return 0; // Finaliza la ejecuciÃ³n del mÃ©todo principal devolviendo un estado sin errores al sistema operativo.
 }
